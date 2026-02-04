@@ -1,24 +1,22 @@
 package hse.java.practice.task1;
 
-import java.util.*;
+import java.util.Arrays;
 
 public class RubiksCube {
 
     final int EDGES_COUNT = 6;
-    final int FACE_SIZE = 8;
-
+    final int FIXED_ELEM = 8;
     final Edge[] edges = new Edge[EDGES_COUNT];
-    final int[] state = new int[EDGES_COUNT * FACE_SIZE + 1];
+    final int[] state = new int[EDGES_COUNT * FIXED_ELEM + 1];
 
     public RubiksCube() {
         CubeColor[] colors = CubeColor.values();
         for (int i = 0; i < EDGES_COUNT; ++i) {
             edges[i] = new Edge(colors[i]);
         }
-        for (int i = 1; i <= EDGES_COUNT * FACE_SIZE; ++i) {
+        for (int i = 1; i <= EDGES_COUNT * FIXED_ELEM; ++i) {
             state[i] = i;
         }
-        updateEdges();
     }
 
     public void front(RotateDirection dir) { rotate(Face.FRONT, dir); }
@@ -28,35 +26,64 @@ public class RubiksCube {
     public void up(RotateDirection dir)    { rotate(Face.UP, dir); }
     public void down(RotateDirection dir)  { rotate(Face.DOWN, dir); }
 
-    public Edge[] getEdges() { return edges; }
+    public Edge[] getEdges() {
+        for (int i = 0; i < EDGES_COUNT; ++i) {
+            edges[Permutations.EDGE_ORDER[i]].setParts(buildEdge(i));
+        }
+        return edges;
+    }
 
     @Override
-    public String toString() { return Arrays.toString(edges); }
+    public String toString() {
+        return Arrays.toString(edges);
+    }
 
 
-    
-    enum Face { FRONT, BACK, LEFT, RIGHT, UP, DOWN };
+
+    enum Face { FRONT, BACK, LEFT, RIGHT, UP, DOWN }
 
     void rotate(Face face, RotateDirection dir) {
-        for (int[] c : Permutations.getCycles(face, dir)) {
-            rotateCycle(c);
+        int[][] cycles;
+        switch (face) {
+            case FRONT: cycles = dir == RotateDirection.CLOCKWISE ? Permutations.FRONT_CW : Permutations.FRONT_CCW; break;
+            case BACK:  cycles = dir == RotateDirection.CLOCKWISE ? Permutations.BACK_CW : Permutations.BACK_CCW; break;
+            case LEFT:  cycles = dir == RotateDirection.CLOCKWISE ? Permutations.LEFT_CW : Permutations.LEFT_CCW; break;
+            case RIGHT: cycles = dir == RotateDirection.CLOCKWISE ? Permutations.RIGHT_CW : Permutations.RIGHT_CCW; break;
+            case UP:    cycles = dir == RotateDirection.CLOCKWISE ? Permutations.UP_CW : Permutations.UP_CCW; break;
+            case DOWN:  cycles = dir == RotateDirection.CLOCKWISE ? Permutations.DOWN_CW : Permutations.DOWN_CCW; break;
+            default: throw new IllegalArgumentException("Unknown Face");
         }
-        updateEdges();
+        appCycle(cycles);
     }
 
-    void rotateCycle(int[] cycle) {
-        int tmp = state[cycle[cycle.length - 1]];
-        for (int i = 0; i < cycle.length; ++i) {
-            int cur = state[cycle[i]];
-            state[cycle[i]] = tmp;
-            tmp = cur;
+    void appCycle(int[][] cs) {
+        for (int[] c : cs) {
+            int prev = state[c[c.length - 1]];
+            for (int i = 0; i < c.length; i++) {
+                int cur = state[c[i]];
+                state[c[i]] = prev;
+                prev = cur;
+            }
         }
     }
 
-    void updateEdges() {
-        for (int i = 0; i < EDGES_COUNT; ++i) {
-            edges[i].setParts(buildEdge(i));
+    int elemToPos(int x, int y) {
+        int pos = x + y * 3 + 1;
+        if (5 < pos) {
+            return pos - 1;
         }
+        return pos;
+    }
+
+
+    CubeColor getColor(int edgeIdx) {
+        return CubeColor.values()[Permutations.EDGE_ORDER[edgeIdx]];
+    }
+
+    CubeColor getCellColor(int edgeIdx, int pos) {
+        int stateIndex = state[edgeIdx * FIXED_ELEM + pos];
+        int front = (stateIndex - 1) / FIXED_ELEM;
+        return getColor(front);
     }
 
     CubeColor[][] buildEdge(int edgeIdx) {
@@ -64,25 +91,17 @@ public class RubiksCube {
         for (int y = 0; y < 3; ++y) {
             for (int x = 0; x < 3; ++x) {
                 if (x == 1 && y == 1) {
-                    face[y][x] = CubeColor.values()[edgeIdx];
+                    face[y][x] = getColor(edgeIdx);
                 } else {
-                    face[y][x] = getCellColor(edgeIdx, x, y);
+                    face[y][x] = getCellColor(edgeIdx, elemToPos(x, y));
                 }
             }
         }
         return face;
     }
 
-    CubeColor getCellColor(int edgeIdx, int x, int y) {
-        int pos = x + y * 3 + 1;
-        if (5 < pos) {
-            --pos;
-        }
-        int idx = state[edgeIdx * FACE_SIZE + pos];
-        return CubeColor.values()[(idx - 1) / FACE_SIZE];
-    }
-
     static class Permutations {
+        static final int[] EDGE_ORDER = {2, 4, 3, 5, 0, 1};
 
         static final int[][] FRONT_CW = {
             {9,11,16,14}, {10,13,15,12}, {38,17,43,8}, {39,20,42,5}, {40,22,41,3}
@@ -125,31 +144,5 @@ public class RubiksCube {
         static final int[][] DOWN_CCW = {
             {41,46,48,43}, {42,44,47,45}, {6,30,22,14}, {7,31,23,15}, {8,32,24,16}
         };
-
-        static final Map<Face, CyclePermut> CYCLES = new EnumMap<>(Face.class);
-
-        static {
-            CYCLES.put(Face.FRONT, new CyclePermut(FRONT_CW, FRONT_CCW));
-            CYCLES.put(Face.BACK, new CyclePermut(BACK_CW, BACK_CCW));
-            CYCLES.put(Face.LEFT, new CyclePermut(LEFT_CW, LEFT_CCW));
-            CYCLES.put(Face.RIGHT, new CyclePermut(RIGHT_CW, RIGHT_CCW));
-            CYCLES.put(Face.UP, new CyclePermut(UP_CW, UP_CCW));
-            CYCLES.put(Face.DOWN, new CyclePermut(DOWN_CW, DOWN_CCW));
-        }
-
-        static class CyclePermut {
-            final int[][] clockwise;
-            final int[][] counterClockwise;
-
-            CyclePermut(int[][] clockwise, int[][] counterClockwise) {
-                this.clockwise = clockwise;
-                this.counterClockwise = counterClockwise;
-            }
-        }
-
-        static int[][] getCycles(Face face, RotateDirection dir) {
-            CyclePermut perm = CYCLES.get(face);
-            return dir == RotateDirection.CLOCKWISE ? perm.clockwise : perm.counterClockwise;
-        }
     }
 }
