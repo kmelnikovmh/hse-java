@@ -5,6 +5,8 @@ import java.util.Random;
 public class RandomSet<T> {
 
     private static final int INIT_CAP = 16;
+    private static final Object DELETED = new Object();
+
     private final Random rnd = new Random();
 
     private Object[] elements;
@@ -34,12 +36,16 @@ public class RandomSet<T> {
 
     private int findSlot(Object key) {
         int pos = mixHash(key);
+        int firstDeleted = -1;
         for (;;) {
             Object k = tableKeys[pos];
             if (k == null) {
-                return - (pos + 1);
+                return (0 <= firstDeleted) ? -firstDeleted - 1 : -pos - 1;
             }
-            if (k.equals(key)) {
+            if (k == DELETED && firstDeleted < 0) {
+                firstDeleted = pos;
+            }
+            else if (k.equals(key)) {
                 return pos;
             }
             pos = (pos + 1) & (tableCap - 1);
@@ -59,15 +65,16 @@ public class RandomSet<T> {
         tableCap = newCap;
         tableSize = 0;
         for (int i = 0; i < oldCap; ++i) {
-            if (oldKeys[i] != null) {
-                insertKey((T) oldKeys[i], oldIdx[i]);
+            Object k = oldKeys[i];
+            if (k != null && k != DELETED) {
+                insertKey((T) k, oldIdx[i]);
             }
         }
     }
 
     private void insertKey(T key, int elementIdx) {
         int pos = mixHash(key);
-        while (tableKeys[pos] != null) {
+        while (tableKeys[pos] != null && tableKeys[pos] != DELETED) {
             pos = (pos + 1) & (tableCap - 1);
         }
         tableKeys[pos] = key;
@@ -109,33 +116,16 @@ public class RandomSet<T> {
         if (slot < 0) {
             return false;
         }
-        
-        int removeElementIdx = tableIdx[slot];
-        int next = (slot + 1) & (tableCap - 1);
-        while (tableKeys[next] != null) {
-            Object k = tableKeys[next];
-            int home = mixHash(k);
-            int distHomeToNext = (next - home + tableCap) % tableCap;
-            int distPosToNext = (next - slot + tableCap) % tableCap;
-            if (distPosToNext <= distHomeToNext) {
-                tableKeys[slot] = tableKeys[next];
-                tableIdx[slot] = tableIdx[next];
-                slot = next;
-            }
-            next = (next + 1) & (tableCap - 1);
-        }
-        tableKeys[slot] = null;
+        int removeIdx = tableIdx[slot];
+        tableKeys[slot] = DELETED;
         tableIdx[slot] = -1;
         --tableSize;
-
         int lastIdx = size - 1;
-        if (removeElementIdx != lastIdx) {
+        if (removeIdx != lastIdx) {
             T move = (T) elements[lastIdx];
-            elements[removeElementIdx] = move;
+            elements[removeIdx] = move;
             int moveSlot = findSlot(move);
-            if (0 <= moveSlot) {
-                tableIdx[moveSlot] = removeElementIdx;
-            }
+            tableIdx[moveSlot] = removeIdx;
         }
         elements[lastIdx] = null;
         --size;
