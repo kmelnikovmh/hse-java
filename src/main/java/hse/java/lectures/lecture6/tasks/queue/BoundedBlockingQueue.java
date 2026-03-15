@@ -5,11 +5,11 @@ public class BoundedBlockingQueue<T> {
     int head, tail, count;
     Object[] items;
 
-    BoundedBlockingQueue(int capacity) {
+    public BoundedBlockingQueue(int capacity) {
         items = new Object[capacity];
     }
 
-    synchronized void put(T item) throws InterruptedException {
+    public synchronized void put(T item) throws InterruptedException {
         while (count == items.length) {
             wait();
         }
@@ -19,7 +19,7 @@ public class BoundedBlockingQueue<T> {
         notifyAll();
     }
 
-    synchronized T take() throws InterruptedException {
+    public synchronized T take() throws InterruptedException {
         while (count == 0) {
             wait();
         }
@@ -31,11 +31,11 @@ public class BoundedBlockingQueue<T> {
         return item;
     }
 
-    synchronized int size() {
+    public synchronized int size() {
         return count;
     }
 
-    private int capacity() {
+    public int capacity() {
         return items.length;
     }
 }
