@@ -6,6 +6,9 @@ public class BoundedBlockingQueue<T> {
     Object[] items;
 
     public BoundedBlockingQueue(int capacity) {
+        if (capacity <= 0) {
+            throw new IllegalArgumentException();
+        }
         items = new Object[capacity];
     }
 
