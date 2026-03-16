@@ -7,11 +7,11 @@ public class BoundedBlockingQueue<T> {
 
     }
 
-    public void put(T item) {
+    public void put(T item) throws InterruptedException {
 
     }
 
-    public T take() {
+    public T take() throws InterruptedException {
         return null;
     }
 
