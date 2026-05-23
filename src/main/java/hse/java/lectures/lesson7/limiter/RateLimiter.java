@@ -1,26 +1,40 @@
 package hse.java.lectures.lesson7.limiter;
 
 import java.time.temporal.ChronoUnit;
+import java.util.LinkedList;
 
-/**
- * Скользящий рейтлимитер: не больше заданного числа успешных {@link #check()} за последнюю секунду или минуту.
- */
 public class RateLimiter {
 
-    /**
-     * @param unit        длина окна — только {@link ChronoUnit#SECONDS} или {@link ChronoUnit#MINUTES}
-     *                    (скользящее окно 1 секунда или 1 минута)
-     * @param maxRequests максимум успешных {@link #check()} за окно (должно быть > 0)
-     */
+    private long windowNanos;
+    private int maxRequests;
+    private LinkedList<Long> stamps = new LinkedList<>();
+    private int currentSize = 0;
+
     public RateLimiter(ChronoUnit unit, int maxRequests) {
-        throw new UnsupportedOperationException("Not implemented");
+        if (unit != ChronoUnit.SECONDS && unit != ChronoUnit.MINUTES) {
+            throw new IllegalArgumentException("bad unit");
+        }
+        if (1 > maxRequests) {
+            throw new IllegalArgumentException("bad max");
+        }
+        this.windowNanos = unit.getDuration().toNanos();
+        this.maxRequests = maxRequests;
     }
 
-    /**
-     * Регистрирует попытку и возвращает, разрешена ли она в пределах лимита.
-     */
-    public boolean check() {
-        throw new UnsupportedOperationException("Not implemented");
+    public synchronized boolean check() {
+        long now = System.nanoTime();
+        long border = now - windowNanos;
+        int removed = 0;
+        while (!stamps.isEmpty() && stamps.getFirst() <= border) {
+            stamps.removeFirst();
+            ++removed;
+        }
+        currentSize = currentSize - removed;
+        if (currentSize < maxRequests) {
+            stamps.addLast(now);
+            ++currentSize;
+            return true;
+        }
+        return false;
     }
-
 }
